@@ -95,7 +95,6 @@ static int fldr_flash(const char *pfile, int partition, const char *secrec) {
     size_t imei_loader_size = 0;
     char imei[FLDR_IMEI_SIZE];
     char imei_text[16];
-    RC4_KEY rc4_ctx;
     char magic[4];
     void *test;
     char *data_loader_data = NULL;
@@ -198,8 +197,6 @@ static int fldr_flash(const char *pfile, int partition, const char *secrec) {
         LOGE("Could not load `%s\'\n", loader_path);
         goto fail_file_read_data_loader;
     }
-    RC4_set_key(&rc4_ctx, 15, (const unsigned char *) imei_text);
-    RC4(&rc4_ctx, data_loader_size, data_loader_data, data_loader_data);
     magic[0] = 'F'; magic[1] = 'L'; magic[2] = 'D'; magic[3] = 'R';
     test = memmem(data_loader_data, data_loader_size, magic, sizeof(magic));
     if (test == NULL ||
