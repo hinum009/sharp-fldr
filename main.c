@@ -270,10 +270,11 @@ fail_fldr_init:
 }
 
 static int fldr_run(const char *pfile, int flags, const char *secrec) {
-    int ret = -1, rc;
+    int ret = -1, rc, i;
     uint32_t status;
     struct libusb_device_handle *h;
     char fldr_name[FLDR_NAME_SIZE];
+    struct fldr_device_info *device = NULL;
     char *loader_data = NULL;
     size_t loader_size = 0;
     char *extra_data = NULL;
@@ -304,13 +305,45 @@ static int fldr_run(const char *pfile, int flags, const char *secrec) {
         goto fail_fldr_get_name;
     }
     LOGV("Detected device: %s\n", fldr_name);
+    for (i = 0; i < NELEM(g_fldr_devices); i++) {
+        if (!strcmp(fldr_name, g_fldr_devices[i].name)) {
+            device = (struct fldr_device_info *) &g_fldr_devices[i];
+            break;
+        }
+    }
+    if (device == NULL) {
+        LOGE("Unsupported device %s.\n", fldr_name);
+        goto fail_device;
+    }
     if (flags & FLDR_FLAG_SEND_SEC) {
         nbtr = fldr_write(h, secrec, 16);
-        if (nbtr != 16)
+        if (nbtr != 16) {
+            LOGE("FLDR security\n");
             goto fail_fldr_write_secrec;
+        }
     }
     if (loader_data && loader_size) {
-        status = fldr_boot(h, (const char *) loader_data, loader_size, flags);
+        char *payload_data = NULL;
+        size_t payload_size;
+        char ivec[16] = { 0 };
+
+        ret = fldr_encode(loader_data, loader_size, device->name, device->key, ivec,
+                &payload_data, &payload_size);
+        if (ret || !payload_data || !payload_size) {
+            LOGE("FLDR encode\n");
+            goto fail_fldr_encode;
+        }
+        if (loader_data) {
+            free(loader_data);
+            loader_data = NULL;
+            loader_size = 0;
+        }
+        status = fldr_boot(h, (const char *) payload_data, payload_size, flags);
+        if (payload_data) {
+            free(payload_data);
+            payload_data = NULL;
+            payload_size = 0;
+        }
         ret = status == (uint32_t) 0xFC000201 ? 0 : -1;
         LOGV("Download result: %s(%08X)\n", ret ? "NGNG" : "OKOK", status);
         if (!ret && (flags & FLDR_FLAG_DUMP)) {
@@ -336,7 +369,9 @@ static int fldr_run(const char *pfile, int flags, const char *secrec) {
     }
 fail_malloc:
 fail_empty_data:
+fail_fldr_encode:
 fail_fldr_write_secrec:
+fail_device:
 fail_fldr_get_name:
     fldr_close(h);
 fail_fldr_open:
