@@ -232,6 +232,7 @@ static int fldr_flash(const char *pfile, int partition, const char *secrec) {
 retry:
         rc = fldr_boot_recv(generated_data, generated_size, secrec);
         if (rc) {
+            LOGE("FLDR boot\n");
             goto retry;
         }
         now = (float)(unsigned)(offset + once);
