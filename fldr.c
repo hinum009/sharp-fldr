@@ -210,19 +210,10 @@ uint32_t fldr_boot_recv(const char *data, size_t size, const char *secrec) {
         return result;
     }
     status = fldr_boot(h, data, size, FLDR_FLAG_DUMP);
-    if (status != 0xFC000201) {
-        fldr_close(h);
-        return result;
-    }
-    nbtr = fldr_read(h, (char *) &status, sizeof(status));
-    if (nbtr != sizeof(status) || status != sizeof(result)) {
-        fldr_close(h);
-        return result;
-    }
-    nbtr = fldr_read(h, (char *) &result, sizeof(result));
     fldr_close(h);
-    if (nbtr != sizeof(result))
-        return (uint32_t) -1;
-    return result;
+    if (status != 0xFC000201) {
+        return result;
+    }
+    return 0;
 }
 
